@@ -44,10 +44,14 @@ struct RoutingObject {
 		d = other.d;
 		return *this;
 	}
+	const double distance(const T &other)const{
+		return key.distance(other.key);
+	}
 };
 
 template<typename T>
 struct DBEntry {
+	static unsigned long n_ops;
 	long long id;
 	T key;
 	double d;
@@ -64,8 +68,12 @@ struct DBEntry {
 		return *this;
 	}
 	const double distance(const T &other)const{
+		DBEntry<T>::n_ops++;
 		return key.distance(other.key);
 	}
 };
+
+template<typename T>
+unsigned long DBEntry<T>::n_ops = 0;
 
 #endif /* _ENTRY_H */

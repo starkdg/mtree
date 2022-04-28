@@ -55,22 +55,27 @@ public:
  **/
 template<typename T, int NROUTES, int LEAFCAP>
 void MTree<T,NROUTES,LEAFCAP>::promote(vector<DBEntry<T>> &entries, RoutingObject<T> &robj1, RoutingObject<T> &robj2){
+	int current = 0;
+	T routes[2];
+	routes[current%2] = entries[0].key;
 
-	int x = -1, y = -1;
-	double max_d = 0;;
-	for (int i=0;i < (int)entries.size()-1;i++){
-		for (int j=i+1;j < (int)entries.size();j++){
-			double d = entries[i].key.distance(entries[j].key); //distance(entries[i].key, entries[j].key);
-			if (d > max_d){
-				x = i;
-				y = j;
-				max_d = d;
+	const int n_iters = 5;
+	for (int i=0;i < n_iters;i++){
+		int maxpos = -1;
+		double maxd = 0;
+		for (int j=0;j < (int)entries.size();j++){
+			double d = entries[j].distance(routes[current%2]); 
+			if (d > maxd){
+				maxpos = j;
+				maxd = d;
 			}
 		}
-	}
 
-	robj1.key = entries[x].key;
-	robj2.key = entries[y].key;
+		routes[(++current)%2] = entries[maxpos].key;
+	}
+	
+	robj1.key = routes[0];
+	robj2.key = routes[1];
 	robj1.d = 0;
 	robj2.d = 0;
 }
@@ -82,8 +87,8 @@ void MTree<T,NROUTES,LEAFCAP>::partition(vector<DBEntry<T>> &entries, RoutingObj
 	double radius1 = 0;
 	double radius2 = 0;
 	for (int i=0;i < (int)entries.size();i++){
-		double d1 = robj1.key.distance(entries[i].key); //distance(entries[i].key, robj1.key);
-		double d2 = robj2.key.distance(entries[i].key); //distance(entries[i].key, robj2.key);
+		double d1 = entries[i].distance(robj1.key); //distance(entries[i].key, robj1.key);
+		double d2 = entries[i].distance(robj2.key); //distance(entries[i].key, robj2.key);
 		if (d1 <= d2){
 			entries[i].d = d1;
 			entries1.push_back(entries[i]);
@@ -151,12 +156,12 @@ MNode<T,NROUTES,LEAFCAP>* MTree<T,NROUTES,LEAFCAP>::split(MNode<T,NROUTES,LEAFCA
 			RoutingObject<T> pobj;
 			pnode->GetRoute(rdx, pobj);
 
-			robj1.d = pobj.key.distance(robj1.key); //  distance(robj1.key, pobj.key);
+			robj1.d = pobj.distance(robj1.key); //  distance(robj1.key, pobj.key);
 			
 			int rdx1 = qnode->StoreRoute(robj1);
 			qnode->SetChildNode(leaf, rdx1);
 
-			robj2.d = pobj.key.distance(robj2.key); // distance(robj2.key, pobj.key);
+			robj2.d = pobj.distance(robj2.key); // distance(robj2.key, pobj.key);
 			
 			int rdx2 = qnode->StoreRoute(robj2);
 			qnode->SetChildNode(leaf2, rdx2);
@@ -169,8 +174,8 @@ MNode<T,NROUTES,LEAFCAP>* MTree<T,NROUTES,LEAFCAP>::split(MNode<T,NROUTES,LEAFCA
 			if (gnode != NULL){
 				RoutingObject<T> pobj;
 				gnode->GetRoute(gdx, pobj);
-				robj1.d = pobj.key.distance(robj1.key); // distance(robj1.key, pobj.key);
-				robj2.d = pobj.key.distance(robj2.key); // distance(robj2.key, pobj.key);
+				robj1.d = pobj.distance(robj1.key); // distance(robj1.key, pobj.key);
+				robj2.d = pobj.distance(robj2.key); // distance(robj2.key, pobj.key);
 			}
 			
 			pnode->ConfirmRoute(robj1, rdx);

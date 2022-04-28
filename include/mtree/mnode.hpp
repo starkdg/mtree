@@ -196,11 +196,14 @@ int MInternal<T,NROUTES,LEAFCAP>::SelectRoute(const T nobj, RoutingObject<T> &ro
 
 template<typename T, int NROUTES, int LEAFCAP>
 void MInternal<T,NROUTES,LEAFCAP>::SelectRoutes(const T query, const double radius, queue<MNode<T,NROUTES,LEAFCAP>*> &nodes)const{
-	RoutingObject<T> pobj;
-	if (this->p != NULL)
-		((MInternal<T,NROUTES,LEAFCAP>*)this->p)->GetRoute(this->rindex, pobj);
 
-	double d = (this->p != NULL) ? query.distance(pobj.key) : 0;      // distance(pobj.key, query) : 0;
+	double d = 0;
+	if (this->p != NULL){
+		RoutingObject<T> pobj;
+		((MInternal<T,NROUTES,LEAFCAP>*)this->p)->GetRoute(this->rindex, pobj);
+		d = pobj.distance(query);
+	}
+
 	for (int i=0;i < NROUTES;i++){
 		if (routes[i].subtree != NULL){
 			if (abs(d -  routes[i].d) <= radius + routes[i].cover_radius){
@@ -256,6 +259,7 @@ MNode<T,NROUTES,LEAFCAP>* MInternal<T,NROUTES,LEAFCAP>::GetChildNode(const int r
 
 template<typename T, int NROUTES, int LEAFCAP>
 void MInternal<T,NROUTES,LEAFCAP>::Clear(){
+	n_routes = 0;
 	return;
 }
 
@@ -298,8 +302,9 @@ void MLeaf<T,NROUTES,LEAFCAP>::SelectEntries(const T query, const double radius,
 	if (this->p != NULL){
 		RoutingObject<T> pobj;
 		((MInternal<T,NROUTES,LEAFCAP>*)this->p)->GetRoute(this->rindex, pobj);
-		d = query.distance(pobj.key);               //distance(pobj.key, query);
+		d = pobj.distance(query);               //distance(pobj.key, query);
 	}
+	
 	for (int j=0;j < (int)entries.size();j++){
 		if (abs(d -  entries[j].d) <= radius){
 			if (entries[j].distance(query) <= radius){	//distance(entries[j].key, query) <= radius){

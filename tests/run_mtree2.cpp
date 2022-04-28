@@ -7,41 +7,52 @@
 #include <chrono>
 #include <cassert>
 #include <ratio>
+#include <cmath>
+#include <cstring>
 #include "mtree/mtree.hpp"
 
 using namespace std;
 
 static random_device m_rd;
 static mt19937_64 m_gen(m_rd());
-static uniform_int_distribution<uint64_t> m_distrib(0);
+static uniform_real_distribution<double> m_distrib(0, 1.0);
+static uniform_real_distribution<double> eps(-0.03, 0.03);
 
-static long long m_id = 0;
-static long long g_id = 100000000;
+static long long m_id = 1;
+static long long g_id = 1000000;
 
 const int n_runs = 5;
 
-const int n_entries = 1000000;
+const int n_entries = 100000;
 const int n_iters = 10;
 const int n_clusters = 10;
 const int cluster_size = 10;
-const double radius = 10;
+const double radius = 0.10;
 
 const int NR = 16;
 const int LC = 500;
 
+const int KEYLEN = 10;
+
 struct KeyObject {
-	uint64_t key;
+	double key[KEYLEN];
 	KeyObject(){};
-	KeyObject(const uint64_t key):key(key){}
+	KeyObject(const double key[]){
+		memcpy(this->key, key, KEYLEN*sizeof(double));
+	}
 	KeyObject(const KeyObject &other){
-		key = other.key;
+		memcpy(key, other.key, KEYLEN*sizeof(double));
 	}
 	KeyObject& operator=(const KeyObject &other){
-		key = other.key;
+		memcpy(this->key, other.key, KEYLEN*sizeof(double));
 		return *this;
 	}
-	const double distance(const KeyObject other)const{
-		return __builtin_popcountll(key^other.key);
+	const double distance(const KeyObject &other)const{
+		double d = 0;
+		for (int i=0;i < KEYLEN;i++){
+			d += pow(key[i] - other.key[i], 2.0);
+		}
+		return sqrt(d);
 	}
 };
 
@@ -54,30 +65,42 @@ struct perfmetric {
 };
 
 
+int generate_center(double center[]){
+	for (int i=0;i < KEYLEN;i++){
+		center[i] = m_distrib(m_gen);
+	}
+	return 1;
+}
+
 int generate_data(vector<Entry<KeyObject>> &entries, const int N){
 
+	double buf[KEYLEN];
 	for (int i=0;i < N;i++){
-		Entry<KeyObject> entry = { .id = m_id++, .key = KeyObject(m_distrib(m_gen)) };
+
+		generate_center(buf);
+		
+		Entry<KeyObject> entry = { .id = m_id++, .key = KeyObject(buf) };
 		entries.push_back(entry);
 	}
 
 	return entries.size();
 }
 
-int generate_cluster(vector<Entry<KeyObject>> &entries, uint64_t center, int N, int max_radius){
-	static uniform_int_distribution<int> radius_distr(1, max_radius);
-	static uniform_int_distribution<int> bitindex_distr(0, 63);
-		
-	uint64_t mask = 0x01;
+
+int generate_cluster(vector<Entry<KeyObject>> &entries, double center[], int N, double max_radius){
+	double d = sqrt(pow(max_radius, 2.0)/KEYLEN);
+
+	uniform_real_distribution<double> tweak(-d, d);
 
 	entries.push_back({ .id = g_id++, .key = KeyObject(center) });
 	for (int i=0;i < N-1;i++){
-		uint64_t val = center;
-		int dist = radius_distr(m_gen);
-		for (int j=0;j < dist;j++){
-			val ^= (mask << bitindex_distr(m_gen));
+
+		double v[KEYLEN];
+		for (int j=0;j < KEYLEN;j++){
+			v[j] = center[j] + eps(m_gen);
 		}
-		entries.push_back({ .id = g_id++, .key = KeyObject(val) });
+	
+		entries.push_back({ .id = g_id++, .key = KeyObject(v) });
 	}
 	return N;
 }
@@ -114,10 +137,10 @@ void do_run(int index, vector<struct perfmetric> &metrics){
 	cout << "(" << index << ") build tree: " << setw(10) << setprecision(6) << m.avg_build_ops << "% opers "
 		 << setw(10) << setprecision(6) << m.avg_build_time << " secs ";
 
-	uint64_t centers[n_clusters];
-	for (int i=0;i < n_clusters;i++){
-		centers[i] = m_distrib(m_gen);
 
+	double centers[n_clusters][KEYLEN];
+	for (int i=0;i < n_clusters;i++){
+		generate_center(centers[i]);
 		vector<Entry<KeyObject>> cluster;
 		generate_cluster(cluster, centers[i], cluster_size, radius);
 		assert(cluster.size() == cluster_size);

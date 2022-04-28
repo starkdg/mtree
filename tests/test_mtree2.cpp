@@ -2,58 +2,75 @@
 #include <iomanip>
 #include <random>
 #include <vector>
-#include <cstdint>
 #include <cassert>
+#include <cstring>
 #include "mtree/mtree.hpp"
 
 using namespace std;
 
 static long long m_id = 1;
 static long long g_id = 10001;
-static random_device rd;
-static mt19937_64 gen(rd());
-static uniform_int_distribution<uint64_t> distrib(0);
+static random_device m_rd;
+static mt19937_64 m_gen(m_rd());
+static uniform_real_distribution<double> m_distrib(-1.0, 1.0);
+static uniform_real_distribution<double> m_eps(-0.03, 0.03);
+
+double Radius = 0.10;
+
+#define KEYLEN 10
 
 struct KeyObject {
-	uint64_t key;
+	double key[KEYLEN];
 	KeyObject(){};
-	KeyObject(const uint64_t key):key(key){}
+	KeyObject(const double key[]){
+		memcpy(this->key, key, KEYLEN*sizeof(double));
+	}
 	KeyObject(const KeyObject &other){
-		key = other.key;
+		memcpy(key, other.key, KEYLEN*sizeof(double));
 	}
 	KeyObject& operator=(const KeyObject &other){
-		key = other.key;
+		memcpy(key, other.key, KEYLEN*sizeof(double));
 		return *this;
 	}
 	const double distance(const KeyObject &other)const{
-		return __builtin_popcountll(key^other.key);
+		double d = 0;
+		for (int i=0;i < KEYLEN;i++){
+			d += pow(key[i] - other.key[i], 2.0);
+		}
+		return sqrt(d);
 	}
 };
 
-int generate_data(vector<Entry<KeyObject>> &entries, const int N){
 
+int generate_center(double center[]){
+	for (int i=0;i < KEYLEN;i++){
+		center[i] = m_distrib(m_gen);
+	}
+	return 1;
+}
+
+int generate_data(vector<Entry<KeyObject>> &entries, const int N){
+	double buf[KEYLEN];
 	for (int i=0;i < N;i++){
-		Entry<KeyObject> entry { .id = m_id++, .key = KeyObject(distrib(gen)) };
+		generate_center(buf);
+		Entry<KeyObject> entry = { .id = m_id++, .key = KeyObject(buf) };
 		entries.push_back(entry);
 	}
-
 	return entries.size();
 }
 
-int generate_cluster(vector<Entry<KeyObject>> &entries, uint64_t center, int N, int max_radius){
-	static uniform_int_distribution<int> radius_distr(1, max_radius);
-	static uniform_int_distribution<int> bitindex_distr(0, 63);
-		
-	uint64_t mask = 0x01;
+
+int generate_cluster(vector<Entry<KeyObject>> &entries, double center[], int N){
 
 	entries.push_back({ .id = g_id++, .key = KeyObject(center) });
 	for (int i=0;i < N-1;i++){
-		uint64_t val = center;
-		int dist = radius_distr(gen);
-		for (int j=0;j < dist;j++){
-			val ^= (mask << bitindex_distr(gen));
+
+		double v[KEYLEN];
+		for (int j=0;j < KEYLEN;j++){
+			v[j] = center[j] + m_eps(m_gen);
 		}
-		entries.push_back({ .id = g_id++, .key = KeyObject(val) });
+	
+		entries.push_back({ .id = g_id++, .key = KeyObject(v) });
 	}
 	return N;
 }
@@ -85,16 +102,16 @@ int main(int argc, char **argv){
 
 	cout << "Add clusters" << endl;
 	const int NClusters = 10;
-	uint64_t centers[NClusters];
+	double centers[NClusters][KEYLEN];
 
 	const int ClusterSize = 5;
 	const double MaxRadius = 5;
 	for (int i=0;i < NClusters;i++){
 
-		centers[i] = distrib(gen);
+		generate_center(centers[i]);
 
 		vector<Entry<KeyObject>> cluster;
-		generate_cluster(cluster, centers[i], ClusterSize, MaxRadius);
+		generate_cluster(cluster, centers[i], ClusterSize);
 		assert(cluster.size() == ClusterSize);
 		
 		for (auto e : cluster){
@@ -112,8 +129,8 @@ int main(int argc, char **argv){
 	DBEntry<KeyObject>::n_ops = 0;
 	
 	for (int i=0;i < NClusters;i++){
-		cout << "Query[" << dec << i << "] " << hex << centers[i] << endl;
-		vector<Entry<KeyObject>> results = mtree.RangeQuery(KeyObject(KeyObject(centers[i])), MaxRadius);
+		cout << "Query[" << dec << i << "] " << endl;
+		vector<Entry<KeyObject>> results = mtree.RangeQuery(KeyObject(KeyObject(centers[i])), Radius);
 		cout << "=>Found: " << dec << results.size() << " entries" << endl;
 		assert(results.size() >= ClusterSize);
 		results.clear();
@@ -132,11 +149,11 @@ int main(int argc, char **argv){
 	assert(sz == N + NClusters*ClusterSize - ndels);
 
 
-	cout << "Query " << hex << centers[0] << endl;
-	vector<Entry<KeyObject>> results = mtree.RangeQuery(centers[0], MaxRadius);
+	cout << "Query " << endl;
+	vector<Entry<KeyObject>> results = mtree.RangeQuery(centers[0], Radius);
 	cout << "=>Found: " << dec << results.size() << " entries" << endl;
 	for (int i=0;i < (int)results.size();i++){
-		cout << "    (" << dec << results[i].id << ") " << hex << results[i].key.key << endl;
+		cout << "    (" << dec << results[i].id << ") " << endl;
 	}
 	assert((int)results.size() >= ClusterSize - ndels);	
 
