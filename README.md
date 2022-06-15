@@ -13,7 +13,7 @@ data set of itms indexed to that node.
 
 You can test the performance with `runmtree` test program.
 
-The tests involve loaded up with uniformly randomly distributed
+The tests load the index up with uniform randomly distributed
 data points.  The number of such data points vary from 100K to 16M.
 The build operations are simply the average number of distance
 computations needed to insert each item.  Likewise, the query operations
@@ -21,10 +21,9 @@ are the average number of distance computations per query.  Both are
 normalized to the total number of indexed items and expressed as a
 percentage.  Ten clusters of ten datapoints are inserted, each being
 a cluster of points with a maximum radius of 10.  The queries performed
-in the test are queries of these clusters.  All stats in this chart
-reflect an average of 5 different runs of the tests, where each run the
-tree is constructed, queried against, and taken down. 
-
+in the test are queries for these clusters.  All stats are averaged over
+5 runs of the tests, where each run, the tree is constructed, queried
+against, adn taken down. 
 
 |  Size  |  MEM   |  build opers  |  build time  |  query opers  |  query time  |  
 |--------|--------|---------------|--------------|---------------|--------------|
@@ -39,8 +38,8 @@ tree is constructed, queried against, and taken down.
 |  16M   |  420MB  |  4358%  |  971 ns  |  72.3%  |  228 ms  |
 
 
-That reflects a very high radius.  Here's one using a radius of half of that
-(radius=5), leaving out the MEM and build times, since they are the same as above. 
+The preceding test used a relatively high radius of 10.
+Here's one with the clusters in a smaller radius (radius=5).  
 
 
 |  Size  |  query opers  | query time  |
