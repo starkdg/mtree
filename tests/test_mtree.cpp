@@ -7,6 +7,7 @@
 #include "mtree/mtree.hpp"
 
 using namespace std;
+using namespace mt;
 
 static long long m_id = 1;
 static long long g_id = 10001;
@@ -71,11 +72,11 @@ int main(int argc, char **argv){
 	generate_data(entries, N);
 	assert(entries.size() == N);
 
-	DBEntry<KeyObject>::n_ops = 0;
+	RoutingObject<KeyObject>::n_build_ops = 0;
 	for (auto e: entries){
 		mtree.Insert(e);
 	}
-	cout << "no. distance ops: " << DBEntry<KeyObject>::n_ops << endl;
+	cout << "no. distance ops: " << RoutingObject<KeyObject>::n_build_ops << endl;
 	
 	entries.clear();
 
@@ -109,7 +110,7 @@ int main(int argc, char **argv){
 	sz = mtree.size();
 	assert(sz == N + NClusters*ClusterSize);
 	
-	DBEntry<KeyObject>::n_ops = 0;
+	DBEntry<KeyObject>::n_query_ops = 0;
 	
 	for (int i=0;i < NClusters;i++){
 		cout << "Query[" << dec << i << "] " << hex << centers[i] << endl;
@@ -119,7 +120,7 @@ int main(int argc, char **argv){
 		results.clear();
 	}
 
-	cout << "avg. no. ops: " << (double)DBEntry<KeyObject>::n_ops/(double)NClusters << endl;
+	cout << "avg. no. ops: " << (double)DBEntry<KeyObject>::n_query_ops/(double)NClusters/(double)sz  << endl;
 	
 	size_t nbytes = mtree.memory_usage();
 	cout << "bytes in use: " << nbytes << " bytes" << endl;

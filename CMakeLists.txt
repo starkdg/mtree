@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 project(mtree VERSION 0.1.0.0
   DESCRIPTION "distanced-based metric-space data structure")
 
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE RelWithDebInfo)
 
 
 add_library(mtree INTERFACE)
@@ -20,9 +20,9 @@ add_executable(runmtree tests/run_mtree.cpp)
 target_compile_options(runmtree PUBLIC -g -Ofast -Wall -Wno-unused-variable)
 target_link_libraries(runmtree mtree)
 
-add_executable(runmtree2 tests/run_mtree2.cpp)
-target_compile_options(runmtree2 PUBLIC -g -O0 -Wall -Wno-unused-variable)
-target_link_libraries(runmtree2 mtree)
+add_executable(perfmtree tests/perfmtree.cpp)
+target_compile_options(perfmtree PUBLIC -g -Ofast -Wall -Wno-unused-variable)
+target_link_libraries(perfmtree mtree)
 
 
 include(CTest)

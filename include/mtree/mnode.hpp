@@ -7,108 +7,109 @@
 #include <cfloat>
 #include "mtree/entry.hpp"
 
-using namespace std;
 
-/**
- * template parameters: NROUTES - no. routes to store in internal nodes
- *                      LEAFCAP - no. dbentries to store in leaf nodes
- **/
+namespace mt {
+	/**
+	 * template parameters: NROUTES - no. routes to store in internal nodes
+	 *                      LEAFCAP - no. dbentries to store in leaf nodes
+	 **/
 
-template<typename T, int NROUTES=16, int LEAFCAP=200>
-class MNode {
-protected:
+	template<typename T, int NROUTES=16, int LEAFCAP=200>
+	class MNode {
+	protected:
 
-	MNode<T,NROUTES,LEAFCAP> *p;   // parent node
-	int rindex; // route_entry index to parent node from this node
+		MNode<T,NROUTES,LEAFCAP> *p;   // parent node
+		int rindex; // route_entry index to parent node from this node
 	
-public:
+	public:
 
-	MNode():p(NULL){};
-	virtual ~MNode(){}
+		MNode():p(NULL){};
+		virtual ~MNode(){}
 	
-	virtual const int size()const = 0;
+		virtual const int size()const = 0;
+		
+		virtual const bool isfull()const = 0;
 
-	virtual const bool isfull()const = 0;
+		const bool isroot()const;
 
-	const bool isroot()const;
+		MNode<T,NROUTES,LEAFCAP>* GetParentNode(int &rdx)const;
 
-	MNode<T,NROUTES,LEAFCAP>* GetParentNode(int &rdx)const;
+		void SetParentNode(MNode<T,NROUTES,LEAFCAP> *pnode, const int rdx);
 
-	void SetParentNode(MNode<T,NROUTES,LEAFCAP> *pnode, const int rdx);
+		virtual void SetChildNode(MNode<T,NROUTES,LEAFCAP>* child, const int rdx) = 0;
 
-	virtual void SetChildNode(MNode<T,NROUTES,LEAFCAP>* child, const int rdx) = 0;
+		virtual MNode<T,NROUTES,LEAFCAP>* GetChildNode(const int rdx)const = 0;
 
-	virtual MNode<T,NROUTES,LEAFCAP>* GetChildNode(const int rdx)const = 0;
+		virtual void Clear() = 0;
 
-	virtual void Clear() = 0;
-
-};
+	};
 
 
-template<typename T, int NROUTES, int LEAFCAP>
-class MInternal : public MNode<T,NROUTES,LEAFCAP> {
-protected:
-
-	int n_routes;
-	RoutingObject<T> routes[NROUTES];
+	template<typename T, int NROUTES, int LEAFCAP>
+	class MInternal : public MNode<T,NROUTES,LEAFCAP> {
+	protected:
+		
+		int n_routes;
+		RoutingObject<T> routes[NROUTES];
 	
-public:
-	MInternal();
-	~MInternal(){}
+	public:
+		MInternal();
+		~MInternal(){}
 	
-	const int size()const;
+		const int size()const;
 
-	const bool isfull()const;
+		const bool isfull()const;
 
-	// return all the routing objects for this node 
-	void GetRoutes(vector<RoutingObject<T>> &routes)const;
+		// return all the routing objects for this node 
+		void GetRoutes(std::vector<RoutingObject<T>> &routes)const;
 
-	// select routing object to follow for insert
-	// modify cover radius in routing object as appropriate
-	int SelectRoute(const T nobj, RoutingObject<T> &robj, bool insert);
+		// select routing object to follow for insert
+		// modify cover radius in routing object as appropriate
+		int SelectRoute(const T nobj, RoutingObject<T> &robj, bool insert);
 
-	void SelectRoutes(const T query, const double radius, queue<MNode<T,NROUTES,LEAFCAP>*> &nodes)const;
+		void SelectRoutes(const T query, const double radius, std::queue<MNode<T,NROUTES,LEAFCAP>*> &nodes)const;
 	
-	int StoreRoute(const RoutingObject<T> &robj);
+		int StoreRoute(const RoutingObject<T> &robj);
 
-	void ConfirmRoute(const RoutingObject<T> &robj, const int rdx);
+		void ConfirmRoute(const RoutingObject<T> &robj, const int rdx);
 
-	void GetRoute(const int rdx, RoutingObject<T> &route);
+		void GetRoute(const int rdx, RoutingObject<T> &route);
 
-	void SetChildNode(MNode<T,NROUTES,LEAFCAP> *child, const int rdx);
+		void SetChildNode(MNode<T,NROUTES,LEAFCAP> *child, const int rdx);
 
-	MNode<T,NROUTES,LEAFCAP>* GetChildNode(const int rdx)const;
+		MNode<T,NROUTES,LEAFCAP>* GetChildNode(const int rdx)const;
 	
-	void Clear();
-};
-
-template<typename T, int NROUTES, int LEAFCAP>
-class MLeaf : public MNode<T,NROUTES,LEAFCAP> {
-protected:
-
-	vector<DBEntry<T>> entries;
-
-public:
-	MLeaf(){};
-	~MLeaf(){}
+		void Clear();
+	};
 	
-	const int size()const;
-	const bool isfull()const;
+	template<typename T, int NROUTES, int LEAFCAP>
+	class MLeaf : public MNode<T,NROUTES,LEAFCAP> {
+	protected:
 
-	int StoreEntry(DBEntry<T> &nobj);
+		std::vector<DBEntry<T>> entries;
 
-	void GetEntries(vector<DBEntry<T>> &dbentries)const;
+	public:
+		MLeaf(){};
+		~MLeaf();
+		
+		const int size()const;
+		const bool isfull()const;
 
-	void SelectEntries(const T query, const double radius, vector<Entry<T>> &results)const;
+		int StoreEntry(const DBEntry<T> &nobj);
 
-	int DeleteEntry(const T &entry);
+		void GetEntries(std::vector<DBEntry<T>> &dbentries)const;
+
+		void SelectEntries(const T query, const double radius, std::vector<Entry<T>> &results)const;
+
+		int DeleteEntry(const T &entry);
 	
-	void SetChildNode(MNode<T,NROUTES,LEAFCAP> *child, const int rdx);
+		void SetChildNode(MNode<T,NROUTES,LEAFCAP> *child, const int rdx);
 
-	MNode<T,NROUTES,LEAFCAP>* GetChildNode(const int rdx)const;
+		MNode<T,NROUTES,LEAFCAP>* GetChildNode(const int rdx)const;
 
-	void Clear();
-};
+		void Clear();
+	};
+}
 
 
 /**
@@ -117,18 +118,18 @@ public:
  **/
 
 template<typename T, int NROUTES, int LEAFCAP>
-const bool MNode<T,NROUTES,LEAFCAP>::isroot()const{
+const bool mt::MNode<T,NROUTES,LEAFCAP>::isroot()const{
 	return (p == NULL);
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-MNode<T,NROUTES,LEAFCAP>* MNode<T,NROUTES,LEAFCAP>::GetParentNode(int &rdx)const{
+mt::MNode<T,NROUTES,LEAFCAP>* mt::MNode<T,NROUTES,LEAFCAP>::GetParentNode(int &rdx)const{
 	rdx = rindex;
 	return p;
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MNode<T,NROUTES,LEAFCAP>::SetParentNode(MNode<T,NROUTES,LEAFCAP> *pnode, const int rdx){
+void mt::MNode<T,NROUTES,LEAFCAP>::SetParentNode(MNode<T,NROUTES,LEAFCAP> *pnode, const int rdx){
 	assert(rdx >= 0 && rdx < NROUTES);
 	p = pnode;
 	rindex = rdx;
@@ -141,7 +142,7 @@ void MNode<T,NROUTES,LEAFCAP>::SetParentNode(MNode<T,NROUTES,LEAFCAP> *pnode, co
  **/
 
 template<typename T, int NROUTES, int LEAFCAP>
-MInternal<T,NROUTES,LEAFCAP>::MInternal(){
+mt::MInternal<T,NROUTES,LEAFCAP>::MInternal(){
 	n_routes = 0;
 	for (int i=0;i < NROUTES;i++){
 		routes[i].subtree = NULL;
@@ -149,18 +150,18 @@ MInternal<T,NROUTES,LEAFCAP>::MInternal(){
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-const int MInternal<T,NROUTES,LEAFCAP>::size()const{
+const int mt::MInternal<T,NROUTES,LEAFCAP>::size()const{
 	return n_routes;
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-const bool MInternal<T,NROUTES,LEAFCAP>::isfull()const{
+const bool mt::MInternal<T,NROUTES,LEAFCAP>::isfull()const{
 	return (n_routes >= NROUTES);
 }
 
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MInternal<T,NROUTES,LEAFCAP>::GetRoutes(vector<RoutingObject<T>> &routes)const{
+void mt::MInternal<T,NROUTES,LEAFCAP>::GetRoutes(std::vector<RoutingObject<T>> &routes)const{
 	for (int i=0;i < NROUTES;i++){
 		if (routes[i].subtree != NULL)
 			routes.push_back(routes[i]);
@@ -168,14 +169,13 @@ void MInternal<T,NROUTES,LEAFCAP>::GetRoutes(vector<RoutingObject<T>> &routes)co
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-int MInternal<T,NROUTES,LEAFCAP>::SelectRoute(const T nobj, RoutingObject<T> &robj, bool insert){
+int mt::MInternal<T,NROUTES,LEAFCAP>::SelectRoute(const T nobj, RoutingObject<T> &robj, bool insert){
 
 	int min_pos = -1;
 	double min_dist = DBL_MAX;
-	
 	for (int i=0;i < NROUTES;i++){
 		if (routes[i].subtree != NULL){
-			const double d = nobj.distance(routes[i].key); //distance(routes[i].key, nobj.key);
+			const double d = routes[i].distance(nobj); //distance(routes[i].key, nobj.key);
 			if (d < min_dist){
 				min_pos = i;
 				min_dist = d;
@@ -184,7 +184,7 @@ int MInternal<T,NROUTES,LEAFCAP>::SelectRoute(const T nobj, RoutingObject<T> &ro
 	}
 
 	if (min_pos < 0)
-		throw logic_error("unable to find route entry");
+		throw std::logic_error("unable to find route entry");
 
 	if (insert && min_dist > routes[min_pos].cover_radius)
 		routes[min_pos].cover_radius = min_dist;
@@ -195,7 +195,8 @@ int MInternal<T,NROUTES,LEAFCAP>::SelectRoute(const T nobj, RoutingObject<T> &ro
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MInternal<T,NROUTES,LEAFCAP>::SelectRoutes(const T query, const double radius, queue<MNode<T,NROUTES,LEAFCAP>*> &nodes)const{
+void mt::MInternal<T,NROUTES,LEAFCAP>::SelectRoutes(const T query, const double radius,
+													std::queue<MNode<T,NROUTES,LEAFCAP>*> &nodes)const{
 
 	double d = 0;
 	if (this->p != NULL){
@@ -207,7 +208,7 @@ void MInternal<T,NROUTES,LEAFCAP>::SelectRoutes(const T query, const double radi
 	for (int i=0;i < NROUTES;i++){
 		if (routes[i].subtree != NULL){
 			if (abs(d -  routes[i].d) <= radius + routes[i].cover_radius){
-				if (query.distance(routes[i].key) <= radius + routes[i].cover_radius){   //distance(routes[i].key, query)
+				if (routes[i].distance(query) <= radius + routes[i].cover_radius){   //distance(routes[i].key, query)
 					nodes.push((MNode<T,NROUTES,LEAFCAP>*)routes[i].subtree);
 				}
 			}
@@ -217,7 +218,7 @@ void MInternal<T,NROUTES,LEAFCAP>::SelectRoutes(const T query, const double radi
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-int MInternal<T,NROUTES,LEAFCAP>::StoreRoute(const RoutingObject<T> &robj){
+int mt::MInternal<T,NROUTES,LEAFCAP>::StoreRoute(const RoutingObject<T> &robj){
 	assert(n_routes < NROUTES);
 
 	int index = -1;
@@ -233,32 +234,32 @@ int MInternal<T,NROUTES,LEAFCAP>::StoreRoute(const RoutingObject<T> &robj){
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MInternal<T,NROUTES,LEAFCAP>::ConfirmRoute(const RoutingObject<T> &robj, const int rdx){
+void mt::MInternal<T,NROUTES,LEAFCAP>::ConfirmRoute(const RoutingObject<T> &robj, const int rdx){
 	assert(rdx >= 0 && rdx < NROUTES && robj.subtree != NULL);
 	routes[rdx] = robj;
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MInternal<T,NROUTES,LEAFCAP>::GetRoute(const int rdx, RoutingObject<T> &route){
+void mt::MInternal<T,NROUTES,LEAFCAP>::GetRoute(const int rdx, RoutingObject<T> &route){
 	assert(rdx >= 0 && rdx < NROUTES);
 	route = routes[rdx];
 };
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MInternal<T,NROUTES,LEAFCAP>::SetChildNode(MNode<T,NROUTES,LEAFCAP> *child, const int rdx){
+void mt::MInternal<T,NROUTES,LEAFCAP>::SetChildNode(MNode<T,NROUTES,LEAFCAP> *child, const int rdx){
 	assert(rdx >= 0 && rdx < NROUTES);
 	routes[rdx].subtree = child;
 	child->SetParentNode(this, rdx);
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-MNode<T,NROUTES,LEAFCAP>* MInternal<T,NROUTES,LEAFCAP>::GetChildNode(const int rdx)const{
+mt::MNode<T,NROUTES,LEAFCAP>* mt::MInternal<T,NROUTES,LEAFCAP>::GetChildNode(const int rdx)const{
 	assert(rdx >= 0 && rdx < NROUTES);
 	return (MNode<T,NROUTES,LEAFCAP>*)routes[rdx].subtree;
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MInternal<T,NROUTES,LEAFCAP>::Clear(){
+void mt::MInternal<T,NROUTES,LEAFCAP>::Clear(){
 	n_routes = 0;
 	return;
 }
@@ -270,19 +271,24 @@ void MInternal<T,NROUTES,LEAFCAP>::Clear(){
  **/
 
 template<typename T, int NROUTES, int LEAFCAP>
-const int MLeaf<T,NROUTES,LEAFCAP>::size()const{
+mt::MLeaf<T,NROUTES,LEAFCAP>::~MLeaf(){
+	entries.clear();
+}
+
+template<typename T, int NROUTES, int LEAFCAP>
+const int mt::MLeaf<T,NROUTES,LEAFCAP>::size()const{
 	return entries.size();
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-const bool MLeaf<T,NROUTES,LEAFCAP>::isfull()const{
+const bool mt::MLeaf<T,NROUTES,LEAFCAP>::isfull()const{
 	return (entries.size() >= LEAFCAP);
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-int MLeaf<T,NROUTES,LEAFCAP>::StoreEntry(DBEntry<T> &nobj){
+int mt::MLeaf<T,NROUTES,LEAFCAP>::StoreEntry(const DBEntry<T> &nobj){
 	if (entries.size() >= LEAFCAP)
-		throw out_of_range("full leaf node");
+		throw std::out_of_range("full leaf node");
 
 	int index = entries.size();
 	entries.push_back(nobj);
@@ -290,14 +296,15 @@ int MLeaf<T,NROUTES,LEAFCAP>::StoreEntry(DBEntry<T> &nobj){
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MLeaf<T,NROUTES,LEAFCAP>::GetEntries(vector<DBEntry<T>> &dbentries)const{
+void mt::MLeaf<T,NROUTES,LEAFCAP>::GetEntries(std::vector<DBEntry<T>> &dbentries)const{
 	for (auto &e : entries){
 		dbentries.push_back(e);
 	}
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MLeaf<T,NROUTES,LEAFCAP>::SelectEntries(const T query, const double radius, vector<Entry<T>> &results)const{
+void mt::MLeaf<T,NROUTES,LEAFCAP>::SelectEntries(const T query, const double radius,
+												 std::vector<Entry<T>> &results)const{
 	double d = 0;
 	if (this->p != NULL){
 		RoutingObject<T> pobj;
@@ -315,7 +322,7 @@ void MLeaf<T,NROUTES,LEAFCAP>::SelectEntries(const T query, const double radius,
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-int MLeaf<T,NROUTES,LEAFCAP>::DeleteEntry(const T &entry){
+int mt::MLeaf<T,NROUTES,LEAFCAP>::DeleteEntry(const T &entry){
 	int count = 0;
 
 	double d = 0;
@@ -339,17 +346,17 @@ int MLeaf<T,NROUTES,LEAFCAP>::DeleteEntry(const T &entry){
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MLeaf<T,NROUTES,LEAFCAP>::SetChildNode(MNode<T,NROUTES,LEAFCAP> *child, const int rdx){
+void mt::MLeaf<T,NROUTES,LEAFCAP>::SetChildNode(mt::MNode<T,NROUTES,LEAFCAP> *child, const int rdx){
 	return;
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-MNode<T,NROUTES,LEAFCAP>* MLeaf<T,NROUTES,LEAFCAP>::GetChildNode(const int rdx)const{
+mt::MNode<T,NROUTES,LEAFCAP>* mt::MLeaf<T,NROUTES,LEAFCAP>::GetChildNode(const int rdx)const{
 	return NULL;
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MLeaf<T,NROUTES,LEAFCAP>::Clear(){
+void mt::MLeaf<T,NROUTES,LEAFCAP>::Clear(){
 	entries.clear();
 }
 

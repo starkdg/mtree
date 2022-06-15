@@ -8,104 +8,113 @@
 #include "mtree/mnode.hpp"
 #include "mtree/entry.hpp"
 
-using namespace std;
+namespace mt {
 
+	template<typename T, int NROUTES=16, int LEAFCAP=250>
+	class MTree {
+	private:
 
-template<typename T, int NROUTES=16, int LEAFCAP=250>
-class MTree {
-private:
-
-	size_t m_count;
+		size_t m_count;
 	
-	MNode<T,NROUTES,LEAFCAP> *m_top;
-
-	void promote(vector<DBEntry<T>> &entries, RoutingObject<T> &op1, RoutingObject<T> &op2);
+		MNode<T,NROUTES,LEAFCAP> *m_top;
+		
+		void promote(std::vector<DBEntry<T>> &entries, RoutingObject<T> &op1, RoutingObject<T> &op2);
 	
-	void partition(vector<DBEntry<T>> &entries, RoutingObject<T> &op1, RoutingObject<T> &op2,
-				   vector<DBEntry<T>> &entries1, vector<DBEntry<T>> &entries2);
+		void partition(std::vector<DBEntry<T>> &entries, RoutingObject<T> &op1, RoutingObject<T> &op2,
+					   std::vector<DBEntry<T>> &entries1, std::vector<DBEntry<T>> &entries2);
 
-	MNode<T,NROUTES,LEAFCAP>* split(MNode<T,NROUTES,LEAFCAP> *node, const Entry<T> &nobj);
+		MNode<T,NROUTES,LEAFCAP>* split(MNode<T,NROUTES,LEAFCAP> *node, const Entry<T> &nobj);
 	
-	void StoreEntries(MLeaf<T,NROUTES,LEAFCAP> *leaf, vector<DBEntry<T>> &entries);
+		void StoreEntries(MLeaf<T,NROUTES,LEAFCAP> *leaf, std::vector<DBEntry<T>> &entries);
 	
-public:
+	public:
 
-	MTree():m_count(0),m_top(NULL){}
+		MTree():m_count(0),m_top(NULL){}
 
+		
+		void Insert(const Entry<T> &entry);
 
-	void Insert(const Entry<T> &entry);
+		const int DeleteEntry(const Entry<T> &entry);
 
-	const int DeleteEntry(const Entry<T> &entry);
-
-	void Clear();
+		void Clear();
 
 	
-	const vector<Entry<T>> RangeQuery(T query, const double radius)const;
+		const std::vector<Entry<T>> RangeQuery(T query, const double radius)const;
 
-	const size_t size()const;
+		const size_t size()const;
 
-	//void PrintTree()const;
+		//void PrintTree()const;
+		
+		const size_t memory_usage()const;
+	};
 
-	const size_t memory_usage()const;
-};
-
+}
+	
 /**
  *  MTree implementation code 
  *
  **/
 template<typename T, int NROUTES, int LEAFCAP>
-void MTree<T,NROUTES,LEAFCAP>::promote(vector<DBEntry<T>> &entries, RoutingObject<T> &robj1, RoutingObject<T> &robj2){
+void mt::MTree<T,NROUTES,LEAFCAP>::promote(std::vector<DBEntry<T>> &entries,
+										   RoutingObject<T> &robj1,
+										   RoutingObject<T> &robj2){
+
+	RoutingObject<T> routes[2];
+
 	int current = 0;
-	T routes[2];
-	routes[current%2] = entries[0].key;
+	routes[current%2].key = entries[0].key;
 
 	const int n_iters = 5;
 	for (int i=0;i < n_iters;i++){
 		int maxpos = -1;
 		double maxd = 0;
-		for (int j=0;j < (int)entries.size();j++){
-			double d = entries[j].distance(routes[current%2]); 
+		const int slimit = entries.size();
+		for (int j=0;j < slimit;j++){
+			double d = routes[current%2].distance(entries[j].key);
 			if (d > maxd){
 				maxpos = j;
 				maxd = d;
 			}
 		}
-
-		routes[(++current)%2] = entries[maxpos].key;
+		routes[++current%2].key = entries[maxpos].key;
 	}
 	
-	robj1.key = routes[0];
-	robj2.key = routes[1];
+	robj1.key = routes[0].key;
+	robj2.key = routes[1].key;
 	robj1.d = 0;
 	robj2.d = 0;
+
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MTree<T,NROUTES,LEAFCAP>::partition(vector<DBEntry<T>> &entries, RoutingObject<T> &robj1, RoutingObject<T> &robj2,
-					  vector<DBEntry<T>> &entries1, vector<DBEntry<T>> &entries2){
+void mt::MTree<T,NROUTES,LEAFCAP>::partition(std::vector<DBEntry<T>> &entries,
+											 RoutingObject<T> &robj1,
+											 RoutingObject<T> &robj2,
+											 std::vector<DBEntry<T>> &entries1,
+											 std::vector<DBEntry<T>> &entries2){
 
 	double radius1 = 0;
 	double radius2 = 0;
 	for (int i=0;i < (int)entries.size();i++){
-		double d1 = entries[i].distance(robj1.key); //distance(entries[i].key, robj1.key);
-		double d2 = entries[i].distance(robj2.key); //distance(entries[i].key, robj2.key);
-		if (d1 <= d2){
-			entries[i].d = d1;
-			entries1.push_back(entries[i]);
+		double d1 = robj1.distance(entries[i].key); //distance(entries[i].key, robj1.key);
+		double d2 = robj2.distance(entries[i].key); //distance(entries[i].key, robj2.key);
+		if (d1 < d2){
+			entries1.push_back({ entries[i].id, entries[i].key, d1 });
 			if (d1 > radius1) radius1 = d1;
 		} else {
-			entries[i].d = d2;
-			entries2.push_back(entries[i]);
+			entries2.push_back({ entries[i].id, entries[i].key, d2 });
 			if (d2 > radius2) radius2 = d2;
 		}
 	}
 	
 	robj1.cover_radius = radius1;
 	robj2.cover_radius = radius2;
+	entries.clear();
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MTree<T,NROUTES,LEAFCAP>::StoreEntries(MLeaf<T,NROUTES,LEAFCAP> *leaf, vector<DBEntry<T>> &entries){
+void mt::MTree<T,NROUTES,LEAFCAP>::StoreEntries(MLeaf<T,NROUTES,LEAFCAP> *leaf,
+												std::vector<DBEntry<T>> &entries){
 	while (!entries.empty()){
 		leaf->StoreEntry(entries.back());
 		entries.pop_back();
@@ -113,26 +122,27 @@ void MTree<T,NROUTES,LEAFCAP>::StoreEntries(MLeaf<T,NROUTES,LEAFCAP> *leaf, vect
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-MNode<T,NROUTES,LEAFCAP>* MTree<T,NROUTES,LEAFCAP>::split(MNode<T,NROUTES,LEAFCAP> *node, const Entry<T> &nobj){
+mt::MNode<T,NROUTES,LEAFCAP>* mt::MTree<T,NROUTES,LEAFCAP>::split(MNode<T,NROUTES,LEAFCAP> *node, const Entry<T> &nobj){
 	assert(typeid(*node) == typeid(MLeaf<T,NROUTES,LEAFCAP>));
 
 	MLeaf<T,NROUTES,LEAFCAP> *leaf = (MLeaf<T,NROUTES,LEAFCAP>*)node;
 	MLeaf<T,NROUTES,LEAFCAP> *leaf2 = new MLeaf<T,NROUTES,LEAFCAP>();
 
-	vector<DBEntry<T>> entries;
+	std::vector<DBEntry<T>> entries;
 	leaf->GetEntries(entries);
+
 	entries.push_back({ .id = nobj.id, .key = nobj.key, 0 });
 
 	RoutingObject<T> robj1, robj2;
 	promote(entries, robj1, robj2);
 
-	vector<DBEntry<T>> entries1, entries2;
+	std::vector<DBEntry<T>> entries1, entries2;
 	partition(entries, robj1, robj2, entries1, entries2);
 	robj1.subtree = leaf;
 	robj2.subtree = leaf2;
 
 	leaf->Clear();
-	
+
 	StoreEntries(leaf, entries1);
 	StoreEntries(leaf2, entries2);
 
@@ -190,7 +200,7 @@ MNode<T,NROUTES,LEAFCAP>* MTree<T,NROUTES,LEAFCAP>::split(MNode<T,NROUTES,LEAFCA
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MTree<T,NROUTES,LEAFCAP>::Insert(const Entry<T> &entry){
+void mt::MTree<T,NROUTES,LEAFCAP>::Insert(const Entry<T> &entry){
 
 	MNode<T,NROUTES,LEAFCAP> *node = m_top;
 	if (node == NULL){ // add first entry to empty tree
@@ -207,10 +217,8 @@ void MTree<T,NROUTES,LEAFCAP>::Insert(const Entry<T> &entry){
 				node = (MNode<T,NROUTES,LEAFCAP>*)robj.subtree;
 				d = robj.key.distance(entry.key);  // distance(robj.key, entry.key);
 			} else if (typeid(*node) == typeid(MLeaf<T,NROUTES,LEAFCAP>)){
-				MLeaf<T,NROUTES,LEAFCAP> *leaf = (MLeaf<T,NROUTES,LEAFCAP>*)node;
 				if (!node->isfull()){
-					DBEntry<T> dentry(entry.id, entry.key, d);
-					leaf->StoreEntry(dentry);
+					((MLeaf<T,NROUTES,LEAFCAP>*)node)->StoreEntry({ entry.id, entry.key, d });
 				} else {
 					node = split(node, entry);
 					if (node->isroot()){
@@ -219,7 +227,7 @@ void MTree<T,NROUTES,LEAFCAP>::Insert(const Entry<T> &entry){
 				}
 				node = NULL;
 			} else {
-				throw logic_error("no such node type");
+				throw std::logic_error("no such node type");
 			}
 		} while (node != NULL);
 	}
@@ -229,7 +237,7 @@ void MTree<T,NROUTES,LEAFCAP>::Insert(const Entry<T> &entry){
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-const int MTree<T,NROUTES,LEAFCAP>::DeleteEntry(const Entry<T> &entry){
+const int mt::MTree<T,NROUTES,LEAFCAP>::DeleteEntry(const Entry<T> &entry){
 	MNode<T,NROUTES,LEAFCAP> *node = m_top;
 
 	int count = 0;
@@ -243,7 +251,7 @@ const int MTree<T,NROUTES,LEAFCAP>::DeleteEntry(const Entry<T> &entry){
 			count = leaf->DeleteEntry(entry.key);
 			node = NULL;
 		} else {
-			throw logic_error("no such node type");
+			throw std::logic_error("no such node type");
 		}
 	};
 
@@ -252,8 +260,8 @@ const int MTree<T,NROUTES,LEAFCAP>::DeleteEntry(const Entry<T> &entry){
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-void MTree<T,NROUTES,LEAFCAP>::Clear(){
-	queue<MNode<T,NROUTES,LEAFCAP>*> nodes;
+void mt::MTree<T,NROUTES,LEAFCAP>::Clear(){
+	std::queue<MNode<T,NROUTES,LEAFCAP>*> nodes;
 	if (m_top != NULL)
 		nodes.push(m_top);
 
@@ -270,7 +278,7 @@ void MTree<T,NROUTES,LEAFCAP>::Clear(){
 			MLeaf<T,NROUTES,LEAFCAP> *leaf = (MLeaf<T,NROUTES,LEAFCAP>*)current;
 			delete leaf;
 		} else {
-			throw logic_error("no such node type");
+			throw std::logic_error("no such node type");
 		}
 		nodes.pop();
 	}
@@ -278,9 +286,9 @@ void MTree<T,NROUTES,LEAFCAP>::Clear(){
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-const vector<Entry<T>> MTree<T,NROUTES,LEAFCAP>::RangeQuery(T query, const double radius)const{
-	vector<Entry<T>> results;
-	queue<MNode<T,NROUTES,LEAFCAP>*> nodes;
+const std::vector<mt::Entry<T>> mt::MTree<T,NROUTES,LEAFCAP>::RangeQuery(T query, const double radius)const{
+	std::vector<Entry<T>> results;
+	std::queue<MNode<T,NROUTES,LEAFCAP>*> nodes;
 
 	if (m_top != NULL)
 		nodes.push(m_top);
@@ -294,7 +302,7 @@ const vector<Entry<T>> MTree<T,NROUTES,LEAFCAP>::RangeQuery(T query, const doubl
 			MLeaf<T,NROUTES,LEAFCAP> *leaf = (MLeaf<T,NROUTES,LEAFCAP>*)current;
 			leaf->SelectEntries(query, radius, results);
 		} else {
-			throw logic_error("no such node type");
+			throw std::logic_error("no such node type");
 		}
 		nodes.pop();
 	}
@@ -302,60 +310,13 @@ const vector<Entry<T>> MTree<T,NROUTES,LEAFCAP>::RangeQuery(T query, const doubl
 }
 
 template<typename T, int NROUTES, int LEAFCAP>
-const size_t MTree<T,NROUTES,LEAFCAP>::size()const{
+const size_t mt::MTree<T,NROUTES,LEAFCAP>::size()const{
 	return m_count;
 }
 
-/**
 template<typename T, int NROUTES, int LEAFCAP>
-void MTree<T,NROUTES,LEAFCAP>::PrintTree()const{
-	map<int, MNode<T,NROUTES,LEAFCAP>*> nodes, childnodes;
-
-	if (m_top != NULL)
-		nodes[0] = m_top;
-
-	int level = 0;
-	while (!nodes.empty()){
-		cout << "(Level = " << dec << level << ")" << endl;
-		
-
-		for (auto iter = nodes.begin(); iter != nodes.end(); iter++){
-			MNode<T,NROUTES,LEAFCAP> *node = iter->second;
-			
-			for (int i=0;i < NROUTES;i++){
-				MNode<T,NROUTES,LEAFCAP> *child = node->GetChildNode(i);
-				if (child) childnodes[iter->first*NROUTES + i] = child;
-
-			}
-
-			if (typeid(*node) == typeid(MInternal<T,NROUTES,LEAFCAP>)){
-				cout << "Internal[" <<  dec << iter->first << "]" << endl;
-				
-			} else if (typeid(*node) == typeid(MLeaf<T,NROUTES,LEAFCAP>)){
-				MLeaf<T,NROUTES,LEAFCAP> *leaf = (MLeaf<T,NROUTES,LEAFCAP>*)node;
-
-				cout << "  Leaf[" << dec << iter->first << "] size = " << leaf->size() << endl;
-
-				vector<DBEntry<T>> entries;
-				leaf->GetEntries(entries);
-				for (DBEntry<T> e : entries){
-					cout << "    " << dec << e.id << " " << hex << e.key.key << endl;
-				}
-				
-			} else {
-				cout << "no such node type" << endl;
-			}
-		}
-		nodes.clear();
-		nodes = move(childnodes);
-		level += 1;
-	}
-}
-**/
-
-template<typename T, int NROUTES, int LEAFCAP>
-const size_t MTree<T,NROUTES,LEAFCAP>::memory_usage()const{
-	queue<MNode<T,NROUTES,LEAFCAP>*> nodes;
+const size_t mt::MTree<T,NROUTES,LEAFCAP>::memory_usage()const{
+	std::queue<MNode<T,NROUTES,LEAFCAP>*> nodes;
 	if (m_top != NULL)
 		nodes.push(m_top);
 
