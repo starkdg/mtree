@@ -1,10 +1,10 @@
 # MTree
 
 Distance-based indexing structure.
-Elements from the indexed data set are selected at each level of the tree hierarcy to serve as routing objects.
+Elements from the indexed data set are selected at each level of the tree hierarchy to serve as routing objects.
 Elements are further sorted into child nodes based on its distance from the routing object at each level.
 Those elements that fall under the median distance of all the distances from the routing object go into one
-child node.  All those aboe the median distance go into the other child node.  
+child node.  All those above the median distance go into the other child node.  
 
 ## Performance
 
@@ -32,7 +32,9 @@ The MEM field indicates the total memory consumed by the data structure.
 |  16M | 2.48GB | 4773% | 1.82 &mu;s |   0.43%  |  4.22 ms  |
 
 
-And some query stats for queries set for various radius values:
+And some query stats for queries set for various radius values
+for a constant index size of N = 1M. 
+
 
 | Radius | Query Opers | Query Times |
 |--------|-------------|-------------|
@@ -51,6 +53,63 @@ And some query stats for queries set for various radius values:
 
 Use `perfmtree` to generate these results.  The code is available in tests/perfmtree.cpp
 
+
+## Programming
+
+
+First, define a custom data object.
+The data type must have a constructor, copy constructor, assignment operator and distance function defined.
+Like this:
+
+```
+struct KeyObject {
+	double key[16];
+	KeyObject(){};
+	KeyObject(const double key[]){
+		memcpy(this->key, key, KEYLEN*sizeof(double));
+	}
+	KeyObject(const KeyObject &other){
+		memcpy(key, other.key, KEYLEN*sizeof(double));
+	}
+	KeyObject& operator=(const KeyObject &other){
+		memcpy(key, other.key, KEYLEN*sizeof(double));
+		return *this;
+	}
+	const double distance(const KeyObject &other)const{
+		double d = 0;
+		for (int i=0;i < KEYLEN;i++){
+			d += pow(key[i] - other.key[i], 2.0);
+		}
+		return sqrt(d);
+	}
+};
+```
+
+Next, use an Mtree index:
+
+```
+#include <mtree/mtree.hpp>
+
+mt::MTree<KeyObject> mtree;
+
+double valarry[16] = { 0.50, 0.003, ... , 0.02 };
+
+KeyObject key(valarray);           // prepare item to insert
+mt::Entry<KeyObject> e(key);
+mt::mtree.Insert(e);
+
+int sz = mtree.size();       // get the size of index
+
+mt::KeyObject target(...)    // prepare a target
+double target = 0.04;
+
+vector<Entry<KeyObject>> results = mtree.Rangequery(target, radius);
+for (auto e : results){
+	cout << "Found: id=" << e.id << endl; // vector data of found item in e.key.key 
+}
+
+mtree.Clear();
+```
 
 ## Install
 
