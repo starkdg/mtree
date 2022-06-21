@@ -34,7 +34,7 @@ namespace mt {
 	 *                      LEAFCAP - no. dbentries to store in leaf nodes
 	 **/
 
-	template<typename T, int NROUTES=16, int LEAFCAP=200>
+	template<typename T, int NROUTES=4, int LEAFCAP=50>
 	class MNode {
 	protected:
 

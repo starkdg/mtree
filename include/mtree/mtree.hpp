@@ -30,7 +30,7 @@
 
 namespace mt {
 
-	template<typename T, int NROUTES=16, int LEAFCAP=250>
+	template<typename T, int NROUTES=4, int LEAFCAP=50>
 	class MTree {
 	private:
 
