@@ -1,4 +1,4 @@
-<h1 style="text-align: center;">MTree</h1>
+MTree
 
 Distance-based indexing structure.
 Elements from the indexed data set are selected at each level of the tree hierarchy to serve as routing objects.
